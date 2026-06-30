@@ -1,0 +1,22 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Notes: only the owner can read, create, update, or delete their own notes.
+    match /notes/{noteId} {
+      allow read, delete: if request.auth != null
+                           && request.auth.uid == resource.data.userId;
+
+      allow create: if request.auth != null
+                    && request.auth.uid == request.resource.data.userId;
+    }
+
+    // Users: a user can read their own profile/plan, but only the server
+    // (Admin SDK, which bypasses these rules entirely) can write to it.
+    // This stops a malicious client from setting their own plan to "premium".
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false;
+    }
+  }
+}
