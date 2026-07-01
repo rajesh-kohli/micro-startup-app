@@ -1,22 +1,46 @@
+// Firestore Security Rules — evaluated by Firebase's servers on EVERY database
+// operation that comes from a client SDK (browser, mobile app).
+//
+// IMPORTANT: The Firebase Admin SDK (used in our API routes via firebase-admin)
+// BYPASSES these rules entirely — it has full trust. These rules only protect
+// against direct client-side Firestore calls (e.g. someone opening dev tools
+// and writing JavaScript directly to the Firestore SDK in the browser).
+//
+// We run TWO layers of authorization:
+//   Layer 1 (API routes):    verifyUser() in auth-server.ts — only verified JWTs reach Firestore
+//   Layer 2 (these rules):   Firestore rejects any direct client calls that skip our API
+//
+// Having both means the database is safe even if someone finds a way to call
+// Firestore directly from the browser without going through our API.
+//
+// request.auth.uid    = the uid of the user making the request (verified by Firebase)
+// resource.data       = the EXISTING document's fields (for read/delete/update)
+// request.resource.data = the NEW document's fields (for create/update — what they're trying to write)
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     // Notes: only the owner can read, create, update, or delete their own notes.
     match /notes/{noteId} {
+      // For reads and deletes: check that the existing document's userId matches the caller.
       allow read, delete: if request.auth != null
                            && request.auth.uid == resource.data.userId;
 
+      // For creates: check that the NEW document's userId matches the caller.
+      // This prevents a user from creating a note and stamping someone else's uid on it.
       allow create: if request.auth != null
                     && request.auth.uid == request.resource.data.userId;
     }
 
     // Users: a user can read their own profile/plan, but only the server
     // (Admin SDK, which bypasses these rules entirely) can write to it.
-    // This stops a malicious client from setting their own plan to "premium".
+    // This stops a malicious client from setting their own plan to "premium"
+    // by directly writing to Firestore from the browser. The webhook route
+    // (via Admin SDK) is the only code path that can upgrade a plan.
     match /users/{userId} {
       allow read: if request.auth != null && request.auth.uid == userId;
-      allow write: if false;
+      allow write: if false; // "false" = nobody from a client can ever write here
     }
   }
 }

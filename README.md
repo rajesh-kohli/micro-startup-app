@@ -16,6 +16,15 @@ npm run dev
 Open http://localhost:3000. The page loads, but sign-in won't work until you
 add Firebase credentials below — that's expected.
 
+## Repository notes
+
+- Install dependencies locally with `npm install`.
+- Do not commit `node_modules`; it is ignored in this repository.
+- Keep source files and lockfiles such as `package-lock.json` or `pnpm-lock.yaml`
+  in Git.
+- If you clone this repo on another machine, run `npm install` there before
+  starting the app.
+
 ## Step 1: Create your Firebase project (free)
 
 1. Go to https://console.firebase.google.com and create a new project.

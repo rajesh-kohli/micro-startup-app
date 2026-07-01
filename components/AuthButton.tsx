@@ -17,14 +17,28 @@ export default function AuthButton() {
   }, []);
 
   async function handleLogin() {
+    // signInWithPopup opens Google's OAuth consent screen in a popup window.
+    // When the user approves, Firebase exchanges the Google OAuth token for a
+    // Firebase ID Token (a JWT — JSON Web Token) scoped to THIS app.
     const result = await signInWithPopup(getFirebaseAuth(), googleProvider);
+
+    // getIdToken() returns the signed JWT that proves who this user is.
+    // It's a base64-encoded string (looks like "eyJhbGci...") containing:
+    //   header: { alg: "RS256", kid: "key_id" }
+    //   payload: { uid: "abc123", email: "user@gmail.com", exp: 1234567890, ... }
+    //   signature: signed by Firebase's private key (our server verifies with Firebase's public key)
     const token = await result.user.getIdToken();
 
-    // Store the JWT in a cookie so it's automatically sent with every
-    // request to our own API routes (including Server Component fetches).
+    // We store the JWT in a cookie (not localStorage) because:
+    //   - Cookies are automatically attached to same-origin fetch() calls → API routes see it
+    //   - localStorage requires manual "Authorization: Bearer ..." header on every fetch
+    //   - samesite=strict prevents the cookie being sent in cross-site requests (CSRF protection)
+    //   - max-age=3600 → cookie expires in 1 hour (matching Firebase token TTL)
+    // Note: HttpOnly would be better in production (prevents JS reading the cookie),
+    // but requires a dedicated /api/login route to set it server-side.
     document.cookie = `authToken=${token}; path=/; max-age=3600; samesite=strict`;
     router.push("/notes");
-    router.refresh();
+    router.refresh(); // tells Next.js to re-render Server Components with fresh data
   }
 
   async function handleLogout() {
